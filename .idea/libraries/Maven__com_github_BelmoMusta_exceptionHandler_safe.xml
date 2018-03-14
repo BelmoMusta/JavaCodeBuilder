@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: com.github.BelmoMusta:exceptionHandler:safe">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/BelmoMusta/exceptionHandler/safe/exceptionHandler-safe.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/BelmoMusta/exceptionHandler/safe/exceptionHandler-safe-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/BelmoMusta/exceptionHandler/safe/exceptionHandler-safe-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
