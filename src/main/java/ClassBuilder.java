@@ -5,6 +5,7 @@ import java.io.FileWriter;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
@@ -15,20 +16,31 @@ import java.util.stream.Stream;
  * Created by DELL on 12/03/2018.
  */
 public class ClassBuilder {
-    public static void build(String path, String destination, Class<?>... classes) {
-        Stream.of(classes)
+
+
+    private String path;
+    private String destination;
+    private List<Class<?>> classes;
+    private String suffix;
+
+
+    public void build() {
+        classes.stream()
                 .filter(cls -> !isAbstract(cls))
                 .forEach(aClass -> {
-                    String pathname = aClass.getSimpleName() + "Builder";
-
+                    String pathname = aClass.getSimpleName() + suffix;
                     TryCatcher.of(() -> Files.createDirectories(Paths.get(path))).execute();
+
                     final File file = new File(destination, pathname + ".java");
+                    TryCatcher.of(file::createNewFile).execute();
+
                     final FileWriter[] fw = {null};
 
                     TryCatcher.of(() -> fw[0] = new FileWriter(file),
                             exception -> {
                             })
                             .execute();
+
 
                     CustomStringBuilder body = new CustomStringBuilder();
                     CustomStringBuilder imports = new CustomStringBuilder();
@@ -115,7 +127,7 @@ public class ClassBuilder {
     }
 
     private static boolean isAbstract(Class<?> cls) {
-        return Modifier.isAbstract(cls.getModifiers());
+        return cls != null && Modifier.isAbstract(cls.getModifiers());
     }
 
     public static boolean executeIf(boolean test, BooleanSupplier supplier) {
@@ -123,4 +135,31 @@ public class ClassBuilder {
     }
 
 
+    public List<Class<?>> getClasses() {
+        return classes;
+    }
+
+    public void setClasses(List<Class<?>> classes) {
+        this.classes = classes;
+    }
+
+    public String getDestination() {
+        return destination;
+    }
+
+    public void setDestination(String destination) {
+        this.destination = destination;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public void setSuffix(String suffix) {
+        this.suffix = suffix;
+    }
 }
