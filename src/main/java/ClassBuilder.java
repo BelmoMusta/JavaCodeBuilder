@@ -1,3 +1,9 @@
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
 import mustabelmo.exception.handler.TryCatcher;
 
 import java.io.File;
@@ -23,6 +29,35 @@ public class ClassBuilder {
     private List<Class<?>> classes;
     private String suffix;
 
+    public void buildFromClass(CompilationUnit compilationUnit) {
+        CompilationUnit resultUnit = new CompilationUnit();
+
+        compilationUnit.findAll(ClassOrInterfaceDeclaration.class).stream().filter(classDef ->
+                !classDef.isAbstract()
+                        && !classDef.isInterface()
+                        && !classDef.isInnerClass()).
+                forEach(classDef -> {
+                    final ClassOrInterfaceDeclaration classOrInterfaceDeclaration = resultUnit.addClass(classDef.getNameAsString() + "Builder");
+                    FieldDeclaration mInstance = classOrInterfaceDeclaration.addField(classDef.getName().asString(), "mInstance");
+
+                    classDef.findAll(MethodDeclaration.class).stream().filter(methodDeclaration ->
+                            !methodDeclaration.isAnnotationPresent("Override"))
+                            .filter(methodDeclaration ->
+                                    methodDeclaration.getName().asString().startsWith("set"))
+                            .forEach(methodDeclaration -> {
+                                MethodDeclaration addedMethod = classOrInterfaceDeclaration
+                                        .addMethod(methodDeclaration.getName().asString().substring(3),
+                                                com.github.javaparser.ast.Modifier.PUBLIC);
+                                addedMethod.setType(classOrInterfaceDeclaration.toString());
+                                addedMethod.setBody(new BlockStmt());
+                                addedMethod.getBody().get().addStatement(new MethodCallExpr(mInstance,methodDeclaration,null));
+
+
+                            });
+
+                });
+
+    }
 
     public void build() {
         classes.stream()

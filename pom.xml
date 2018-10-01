@@ -32,6 +32,13 @@
             <artifactId>exceptionHandler</artifactId>
             <version>safe</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-core</artifactId>
+            <version>3.6.2</version>
+        </dependency>
+
     </dependencies>
 
 </project>
