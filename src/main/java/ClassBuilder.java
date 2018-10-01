@@ -1,9 +1,13 @@
+import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.FieldDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ReturnStmt;
 import mustabelmo.exception.handler.TryCatcher;
 
 import java.io.File;
@@ -29,7 +33,13 @@ public class ClassBuilder {
     private List<Class<?>> classes;
     private String suffix;
 
-    public void buildFromClass(CompilationUnit compilationUnit) {
+    public static void main(String[] args) throws Exception {
+
+        CompilationUnit compilationUnit = JavaParser.parse(new File("C:\\Users\\mbelmokhtar\\Desktop\\Nouveau dossier\\JavaCodeBuilder\\src\\main\\java\\objects\\SimpleObject.java"));
+        buildFromClass(compilationUnit);
+    }
+
+    public static void buildFromClass(CompilationUnit compilationUnit) {
         CompilationUnit resultUnit = new CompilationUnit();
 
         compilationUnit.findAll(ClassOrInterfaceDeclaration.class).stream().filter(classDef ->
@@ -38,25 +48,63 @@ public class ClassBuilder {
                         && !classDef.isInnerClass()).
                 forEach(classDef -> {
                     final ClassOrInterfaceDeclaration classOrInterfaceDeclaration = resultUnit.addClass(classDef.getNameAsString() + "Builder");
-                    FieldDeclaration mInstance = classOrInterfaceDeclaration.addField(classDef.getName().asString(), "mInstance");
+                    FieldDeclaration mObject = classOrInterfaceDeclaration.addField(classOrInterfaceDeclaration.getName().asString(),
+                            "m" + classDef.getName().asString());
 
-                    classDef.findAll(MethodDeclaration.class).stream().filter(methodDeclaration ->
+                    FieldDeclaration mInstance = classOrInterfaceDeclaration.addField(classOrInterfaceDeclaration.getName().asString(),
+                            "m" + classOrInterfaceDeclaration.getName().asString());
+                    mInstance.addModifier(com.github.javaparser.ast.Modifier.PRIVATE);
+                    mInstance.addModifier(com.github.javaparser.ast.Modifier.PRIVATE);
+                    mObject.addModifier(com.github.javaparser.ast.Modifier.PRIVATE);
+                    ConstructorDeclaration constructorDeclaration =
+                            classOrInterfaceDeclaration.addConstructor(com.github.javaparser.ast.Modifier.PRIVATE);
+                    BlockStmt constructorBody = new BlockStmt();
+                    ObjectCreationExpr objectCreationExpr = new ObjectCreationExpr();
+                    objectCreationExpr.setType(classDef.getName().asString());
+                    VariableDeclarator variable = mObject.getVariable(0);
+
+                    constructorBody.addStatement(new AssignExpr(variable.getNameAsExpression(),
+                            objectCreationExpr, AssignExpr.Operator.ASSIGN));
+                    constructorDeclaration.setBody(constructorBody);
+
+                    MethodDeclaration getInstance = classOrInterfaceDeclaration.addMethod("getInstance");
+                    getInstance.addModifier(com.github.javaparser.ast.Modifier.STATIC);
+
+
+                    Stream<MethodDeclaration> methodDeclarationStream = classDef.findAll(MethodDeclaration.class).stream().filter(methodDeclaration ->
                             !methodDeclaration.isAnnotationPresent("Override"))
                             .filter(methodDeclaration ->
-                                    methodDeclaration.getName().asString().startsWith("set"))
-                            .forEach(methodDeclaration -> {
-                                MethodDeclaration addedMethod = classOrInterfaceDeclaration
-                                        .addMethod(methodDeclaration.getName().asString().substring(3),
-                                                com.github.javaparser.ast.Modifier.PUBLIC);
-                                addedMethod.setType(classOrInterfaceDeclaration.toString());
-                                addedMethod.setBody(new BlockStmt());
-                                addedMethod.getBody().get().addStatement(new MethodCallExpr(mInstance,methodDeclaration,null));
+                                    methodDeclaration.getName().asString().startsWith("set"));
 
+                    methodDeclarationStream.forEach(methodDeclaration -> {
+                        MethodDeclaration addedMethod = classOrInterfaceDeclaration
+                                .addMethod(Utils.uncapitalize(methodDeclaration.getName().asString().substring(3)),
+                                        com.github.javaparser.ast.Modifier.PUBLIC);
+                        addedMethod.setType(classOrInterfaceDeclaration.getName().asString());
+                        addedMethod.setBody(new BlockStmt());
 
-                            });
+                        NodeList<Parameter> parameters = methodDeclaration.getParameters();
+                        addedMethod.setParameters(parameters);
+                        MethodCallExpr expr = new MethodCallExpr(variable.getNameAsExpression(), methodDeclaration.getName().asString());
+                        parameters.forEach(p -> expr.addArgument(p.getName().asString()));
 
+                        expr.setName(methodDeclaration.getName());
+                        BlockStmt blockStmt = addedMethod.getBody().get();
+                        blockStmt.addStatement(expr);
+                        ReturnStmt returnStatement = new ReturnStmt();
+                        returnStatement.setExpression(new NameExpr("this"));
+                        blockStmt.addStatement(returnStatement);
+                    });
+
+                    MethodDeclaration buildMethod = classOrInterfaceDeclaration.addMethod("build");
+                    buildMethod.setType(classOrInterfaceDeclaration.getName().asString());
+                    ReturnStmt returnStatement = new ReturnStmt();
+                    returnStatement.setExpression(variable.getNameAsExpression());
+                    buildMethod.addModifier(com.github.javaparser.ast.Modifier.PUBLIC);
+                    buildMethod.getBody().get().addStatement(returnStatement);
                 });
 
+        System.out.println(resultUnit);
     }
 
     public void build() {
