@@ -3,7 +3,7 @@ package objects;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SimpleObject {
+public class SimpleObject extends Object{
 
     private String name;
     private List<String> list;
