@@ -33,11 +33,6 @@ public class ClassBuilder {
     private List<Class<?>> classes;
     private String suffix;
 
-    public static void main(String[] args) throws Exception {
-
-        CompilationUnit compilationUnit = JavaParser.parse(new File("C:\\Users\\mbelmokhtar\\Desktop\\Nouveau dossier\\JavaCodeBuilder\\src\\main\\java\\objects\\SimpleObject.java"));
-        buildFromClass(compilationUnit);
-    }
 
     public static void buildFromClass(CompilationUnit compilationUnit) {
         CompilationUnit resultUnit = new CompilationUnit();
