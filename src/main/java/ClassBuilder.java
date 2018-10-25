@@ -66,7 +66,7 @@ public class ClassBuilder {
                     methodDeclarationStream.forEach(methodDeclaration -> {
                         String methodName;
                         if (methodDeclaration.getName().asString().startsWith("set"))
-                            methodName = Utils.uncapitalize(methodDeclaration.getName().asString().substring(3));
+                            methodName = Utils.unCapitalize(methodDeclaration.getName().asString().substring(3));
                         else methodName = methodDeclaration.getName().asString();
                         MethodDeclaration addedMethod = classDeclaration
                                 .addMethod(methodName,
