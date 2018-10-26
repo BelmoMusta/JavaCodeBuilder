@@ -1,3 +1,6 @@
+package musta.belmo.javacodebuilder.tests;
+
+import musta.belmo.javacodebuilder.service.ClassBuilder;
 import org.junit.Test;
 
 /**

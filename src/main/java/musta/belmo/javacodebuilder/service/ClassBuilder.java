@@ -1,3 +1,5 @@
+package musta.belmo.javacodebuilder.service;
+
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.NodeList;

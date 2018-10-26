@@ -1,4 +1,4 @@
-package objects;
+package musta.belmo.javacodebuilder.objects;
 
 public class Person {
     private String name;

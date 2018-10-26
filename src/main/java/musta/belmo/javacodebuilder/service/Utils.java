@@ -1,3 +1,5 @@
+package musta.belmo.javacodebuilder.service;
+
 public class Utils {
 
     public static String unCapitalize(String input) {
