@@ -5,7 +5,7 @@ import org.junit.Test;
  */
 public class TestClassBuilder {
 
-    public static final String PATH = "PATH_TO_FILE";
+    public static final String PATH = "C:\\Users\\mustapha\\Desktop\\javaProjects\\JavaCodeBuilder\\src\\main\\java\\objects\\Person.java";
 
     @Test
     public void testBuilder() throws Exception {
