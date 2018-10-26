@@ -12,6 +12,4 @@ public class TestClassBuilder {
         ClassBuilder classBuilder = new ClassBuilder();
         classBuilder.buildFormFile(new java.io.File(PATH), System.out);
     }
-
-
 }
