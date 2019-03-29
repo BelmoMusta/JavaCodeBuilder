@@ -2,6 +2,7 @@ package musta.belmo.javacodebuilder.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -15,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.EnumSet;
 import java.util.stream.Stream;
 
 /**
@@ -23,86 +25,111 @@ import java.util.stream.Stream;
 public class ClassBuilder {
 
 
-    public void buildFormFile(File f, OutputStream outputStream) throws IOException {
-        CompilationUnit compilationUnit = JavaParser.parse(f);
-        buildFromClass(compilationUnit, outputStream);
+    public CompilationUnit buildFormFile(File f) throws IOException {
+        return buildFromClass(JavaParser.parse(f));
     }
 
-    private void buildFromClass(CompilationUnit compilationUnit, OutputStream out) {
-        CompilationUnit resultUnit = new CompilationUnit();
+    public CompilationUnit buildFormFile(String code) {
+        return buildFromClass(JavaParser.parse(code));
+    }
 
+    private CompilationUnit buildFromClass(CompilationUnit compilationUnit) {
+        final CompilationUnit resultUnit = new CompilationUnit();
+
+        setupPackageandImports(compilationUnit, resultUnit);
         compilationUnit.findAll(ClassOrInterfaceDeclaration.class)
                 .stream()
-                .filter(classDef ->
-                        !classDef.isAbstract()
-                                && !classDef.isInterface()
-                                && !classDef.isInnerClass()).
+                .filter(srcClass ->
+                        !srcClass.isAbstract()
+                                && !srcClass.isInterface()
+                                && !srcClass.isInnerClass()).
                 forEach(classDef -> {
-                    final ClassOrInterfaceDeclaration classDeclaration =
-                            resultUnit.addClass(String.format("%sBuilder", classDef.getNameAsString()));
-
-                    FieldDeclaration fieldDeclaration = classDeclaration.addField(classDef.getName()
-                                    .asString(),
-                            String.format("m%s", classDef.getName().asString()));
-                    fieldDeclaration.addModifier(com.github.javaparser.ast.Modifier.PRIVATE);
-                    VariableDeclarator variableDeclarator = fieldDeclaration.getVariable(0);
-
-                    ObjectCreationExpr objectCreationExpr = new ObjectCreationExpr();
-                    objectCreationExpr.setType(classDef.getName().asString());
-
-                    AssignExpr assignExpr = new AssignExpr(variableDeclarator.getNameAsExpression(),
-                            objectCreationExpr, AssignExpr.Operator.ASSIGN);
-
-                    ConstructorDeclaration constructorDeclaration =
-                            classDeclaration.addConstructor(com.github.javaparser.ast.Modifier.PUBLIC);
-                    BlockStmt constructorBody = new BlockStmt();
-                    constructorBody.addStatement(assignExpr);
-                    constructorDeclaration.setBody(constructorBody);
-
-                    Stream<MethodDeclaration> methodDeclarationStream = classDef.findAll(MethodDeclaration.class).stream().filter(methodDeclaration ->
-                            !methodDeclaration.isAnnotationPresent("Override"))
-                            .filter(methodDeclaration ->
-                                    !methodDeclaration.getName().asString().startsWith("get")
-                                            && !"clone".equals(methodDeclaration.getName().asString()));
-
-                    methodDeclarationStream.forEach(methodDeclaration -> {
-                        String methodName;
-                        if (methodDeclaration.getName().asString().startsWith("set"))
-                            methodName = Utils.unCapitalize(methodDeclaration.getName().asString().substring(3));
-                        else methodName = methodDeclaration.getName().asString();
-                        MethodDeclaration addedMethod = classDeclaration
-                                .addMethod(methodName,
-                                        com.github.javaparser.ast.Modifier.PUBLIC);
-
-                        addedMethod.setType(classDeclaration.getName().asString());
-                        addedMethod.setBody(new BlockStmt());
-
-                        NodeList<Parameter> parameters = methodDeclaration.getParameters();
-                        addedMethod.setParameters(parameters);
-                        MethodCallExpr methodCallExpr = new MethodCallExpr(variableDeclarator.getNameAsExpression(), methodDeclaration.getName().asString());
-                        parameters.forEach(parameter -> methodCallExpr.addArgument(parameter.getName().asString()));
-                        methodCallExpr.setName(methodDeclaration.getName());
-
-                        addedMethod.getBody().ifPresent(blockStmt -> {
-                            blockStmt.addStatement(methodCallExpr);
-                            ReturnStmt returnStatement = new ReturnStmt();
-                            returnStatement.setExpression(new ThisExpr());
-                            blockStmt.addStatement(returnStatement);
-                        });
-                    });
-
-                    MethodDeclaration buildMethod = classDeclaration.addMethod("build");
-                    buildMethod.setType(classDef.getName().asString());
-                    ReturnStmt returnStatement = new ReturnStmt();
-                    returnStatement.setExpression(variableDeclarator.getNameAsExpression());
-                    buildMethod.addModifier(com.github.javaparser.ast.Modifier.PUBLIC);
-                    buildMethod.getBody().ifPresent(body -> body.addStatement(returnStatement));
+                    final ClassOrInterfaceDeclaration destClass = resultUnit.addClass(String.format("%sBuilder", classDef.getNameAsString()));
+                    VariableDeclarator variableDeclarator = createConstructor(classDef, destClass);
+                    createMethods(classDef, destClass, variableDeclarator);
+                    createBuildMethod(classDef, destClass, variableDeclarator);
                 });
+        return resultUnit;
+    }
 
-        final PrintWriter printWriter = new PrintWriter(out);
-        printWriter.write(resultUnit.toString());
-        printWriter.flush();
-        printWriter.close();
+    private void setupPackageandImports(CompilationUnit compilationUnit, CompilationUnit resultUnit) {
+        resultUnit.setPackageDeclaration(compilationUnit.getPackageDeclaration()
+                .map(pkg -> pkg.clone().setName(pkg.getNameAsString() + ".builder"))
+                .orElse(null));
+        resultUnit.getImports().addAll(compilationUnit.getImports());
+    }
+
+
+
+    private void createBuildMethod(ClassOrInterfaceDeclaration classDef, ClassOrInterfaceDeclaration classDeclaration, VariableDeclarator variableDeclarator) {
+        MethodDeclaration buildMethod = classDeclaration.addMethod("build");
+        buildMethod.setType(classDef.getNameAsString());
+        ReturnStmt returnStatement = new ReturnStmt();
+        returnStatement.setExpression(variableDeclarator.getNameAsExpression());
+        buildMethod.addModifier(Modifier.PUBLIC);
+        buildMethod.getBody().ifPresent(body -> body.addStatement(returnStatement));
+    }
+
+    private void createMethods(ClassOrInterfaceDeclaration classDef, ClassOrInterfaceDeclaration classDeclaration, VariableDeclarator variableDeclarator) {
+        Stream<MethodDeclaration> methodDeclarationStream = classDef.findAll(MethodDeclaration.class).stream().filter(methodDeclaration ->
+                !methodDeclaration.isAnnotationPresent("Override"))
+                .filter(methodDeclaration ->
+                        !methodDeclaration.getName().asString().startsWith("get")
+                                && !"clone".equals(methodDeclaration.getName().asString()));
+
+        methodDeclarationStream.forEach(methodDeclaration -> {
+            createMethod(classDeclaration, variableDeclarator, methodDeclaration);
+        });
+    }
+
+    private VariableDeclarator createConstructor(ClassOrInterfaceDeclaration srcClass, ClassOrInterfaceDeclaration destClass) {
+        FieldDeclaration fieldDeclaration = createField(srcClass, destClass);
+
+        VariableDeclarator variableDeclarator = fieldDeclaration.getVariable(0);
+        ObjectCreationExpr objectCreationExpr = new ObjectCreationExpr();
+        objectCreationExpr.setType(srcClass.getName().asString());
+        AssignExpr assignExpr = new AssignExpr(variableDeclarator.getNameAsExpression(),
+                objectCreationExpr, AssignExpr.Operator.ASSIGN);
+        ConstructorDeclaration constructorDeclaration = destClass.addConstructor(Modifier.PUBLIC);
+        BlockStmt constructorBody = new BlockStmt();
+        constructorBody.addStatement(assignExpr);
+        constructorDeclaration.setBody(constructorBody);
+        return variableDeclarator;
+    }
+
+    private FieldDeclaration createField(ClassOrInterfaceDeclaration srcClass, ClassOrInterfaceDeclaration destClass) {
+        String srcClassName = srcClass.getNameAsString();
+        return destClass.addField(srcClassName, String.format("m%s", srcClassName)).
+                addModifier(Modifier.PRIVATE, Modifier.FINAL);
+    }
+
+    private void createMethod(ClassOrInterfaceDeclaration classDeclaration, VariableDeclarator variableDeclarator, MethodDeclaration methodDeclaration) {
+        String srcMethodName = methodDeclaration.getNameAsString();
+        String destMethodName = srcMethodName;
+
+        if (srcMethodName.startsWith("set")) {
+            destMethodName = Utils.unCapitalize(srcMethodName.substring(3));
+        }
+
+        MethodDeclaration addedMethod = methodDeclaration.clone();
+        classDeclaration.addMember(addedMethod);
+        addedMethod.setName(destMethodName)
+                .setModifiers(EnumSet.of(Modifier.PUBLIC))
+                .setType(classDeclaration.getName().asString())
+                .setBody(new BlockStmt());
+
+        NodeList<Parameter> parameters = addedMethod.getParameters();
+
+        MethodCallExpr methodCallExpr = new MethodCallExpr(variableDeclarator.getNameAsExpression(), methodDeclaration.getNameAsString());
+        parameters.forEach(parameter -> methodCallExpr.addArgument(parameter.getNameAsString()));
+        methodCallExpr.setName(srcMethodName);
+
+        addedMethod.getBody().ifPresent(blockStmt -> {
+            blockStmt.addStatement(methodCallExpr);
+            ReturnStmt returnStatement = new ReturnStmt();
+            returnStatement.setExpression(new ThisExpr());
+            blockStmt.addStatement(returnStatement);
+        });
     }
 }
 
